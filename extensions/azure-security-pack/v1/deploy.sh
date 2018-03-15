@@ -15,7 +15,9 @@ apt-get install azure-cli
 config-mdsd syslog -e rsyslog
 
 ZIP_FILE=""
-
+ENV=""
+ACCOUNT=""
+REGION=""
 
 # retrieve and parse extension parameters
 if [[ -n "$1" ]]; then
@@ -23,26 +25,36 @@ if [[ -n "$1" ]]; then
     if [[ -n "${INPUT[0]}" ]]; then
         ZIP_FILE="${INPUT[0]}"  
     fi
-    # if [[ -n "${INPUT[1]}" ]]; then
-    #     SERVICE_PRINCIPAL_KEY="${INPUT[1]}"
-    # fi
-    # if [[ -n "${INPUT[2]}" ]]; then
-    #     TENANT="${INPUT[2]}"
-    # fi
+    if [[ -n "${INPUT[1]}" ]]; then
+        ENV="${INPUT[1]}"
+    fi
+    if [[ -n "${INPUT[2]}" ]]; then
+        ACCOUNT="${INPUT[2]}"
+    fi
+    if [[ -n "${INPUT[3]}" ]]; then
+        REGION="${INPUT[3]}"
+    fi
 fi
 
-if [[ -z $ZIP_FILE ]]; then
+if [[ -z $ZIP_FILE || -z $ENV || -z $ACCOUNT || -z $REGION ]]; then
     exit 1
 fi
 
 mkdir /etc/mdsd.d
 
 echo $ZIP_FILE | base64 --decode > /etc/mdsd.d/file.tar.gz
-tar -zxvf /etc/mdsd.d/file.tar.gz
+tar -zxvf /etc/mdsd.d/file.tar.gz -C /etc/mdsd.d/
 rm /etc/mdsd.d/file.tar.gz
 
 chown syslog /etc/mdsd.d/gcskey.pem
 chmod 400 /etc/mdsd.d/gcskey.pem
+
+sed -i "s@#export MONITORING_GCS_ENVIRONMENT=.*@export MONITORING_GCS_ENVIRONMENT=${ENV}@g" /etc/default/mdsd && \
+sed -i "s@#export MONITORING_GCS_ACCOUNT=.*@export MONITORING_GCS_ACCOUNT=${ACCOUNT}@g" /etc/default/mdsd && \
+sed -i "s@#export MONITORING_GCS_REGION=.*@export MONITORING_GCS_REGION=${REGION}@g" /etc/default/mdsd && \
+sed -i "s@#export MONITORING_GCS_CERT_CERTFILE=.*@export MONITORING_GCS_CERT_CERTFILE=/etc/mdsd.d/gcscert.pem@g" /etc/default/mdsd && \
+sed -i "s@#export MONITORING_GCS_CERT_KEYFILE=.*@export MONITORING_GCS_CERT_KEYFILE=/etc/mdsd.d/gcskey.pem@g" /etc/default/mdsd
+
 
 azsecd config -s baseline -d P1D 
 azsecd config -s software -d P1D 
