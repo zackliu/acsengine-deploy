@@ -1,0 +1,4 @@
+_output/
+files_INT/
+files_PROD/
+kubernetes1.8.json
